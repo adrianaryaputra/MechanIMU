@@ -19,7 +19,7 @@ class DCM:
             raise RuntimeError("DCM is not initiated yet")
         if not isinstance(other, np.ndarray):
             raise TypeError("DCM can only be multiplied with numpy.ndarray<3> or numpy.ndarray<3,1>")
-        if other.shape in [(3,), (3, 1)]:
+        if other.shape in [(3,3), (3, 2), (3,1)]:
             return np.matmul(self.dcm, other)
         raise TypeError("DCM can only be multiplied with numpy.ndarray<3> or numpy.ndarray<3,1>")
 
