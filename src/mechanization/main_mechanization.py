@@ -71,6 +71,9 @@ class INSState:
     # pylint: disable=missing-function-docstring
     def dcm_e_n(self, lat, long):
         return ct.create_earth2nav(lat, long)
+    
+    def dcm_n_e(self, lat, long):
+        return ct.create_nav2earth(lat, long)
 
     def dcm_n_b(self, roll, pitch, yaw):
         return ct.create_nav2body(roll, pitch, yaw)
@@ -144,13 +147,12 @@ class INS:
 
     def calculate_accel(self, accel, bias_accel, time_step, **accel_cfg):
         # calculate accel
-        print("accel_cfg", accel_cfg)
         sg = np.diag([1/(1+accel_cfg['sgx']), 1/(1+accel_cfg['sgy']), 1/(1+accel_cfg['sgz'])])
         self.state.specific_force_f_b = sg @ (accel - (bias_accel * time_step))
         sks = mk.skew_symmetric_matrix(self.state.omega_b_nb, diag=1, scaler=0.5)
         self.state.specific_force_f_n = self.state.C_b2n @ sks @ self.state.specific_force_f_b
         w_n_in = (2*self.state.omega_n_ie + self.state.omega_n_en)
-        acceleration_fb = np.cross(w_n_in.reshape((3,)), self.state.velocity.reshape((3,))) * time_step
+        acceleration_fb = (np.cross(w_n_in.reshape((3,)), self.state.velocity.reshape((3,))) * time_step).reshape((3,1))
         self.state.acceleration = self.state.specific_force_f_n - acceleration_fb + (self.state.gravity_gamma_n * time_step)
 
         last_velocity = self.state.velocity.copy()
@@ -162,15 +164,17 @@ class INS:
             [0, 0, -1]
         ])
 
-        self.state.position = self.state.position + (0.5 * d_one) @ (self.state.velocity + last_velocity) * time_step
+        dposisi = (0.5 * d_one) @ (self.state.velocity + last_velocity) * time_step
+
+        self.state.position = self.state.position + dposisi
 
         # update positionLLA
         # converting from navigation frame to earth frame
-        self.state.C_n2e = ct.create_nav2earth(self.state.positionLLA[0,0], self.state.positionLLA[1,0])
-        positionECEF = self.state.C_n2e @ self.state.position
+        pos_ned_diff = mk.ned2lla(self.state.position, self.state.positionLLA)
+        print("positionLLA_new", pos_ned_diff)
+        print("positionLLA_old", self.state.positionLLA)
         # converting from earth frame to LLA
-        self.state.positionLLA = mk.ecef_to_lla(positionECEF[0,0], positionECEF[1,0], positionECEF[2,0])
-
+        self.state.positionLLA = pos_ned_diff
         # do LLA update
         self.update_feedback_LLA(self.state.positionLLA[0,0], self.state.positionLLA[1,0], self.state.positionLLA[2,0])
 
@@ -202,28 +206,3 @@ class INS:
             [0],
             [a1 * (1 + a2 * np.sin(latitude)**2 + a3 * np.sin(latitude)**4) + (a4 + a5 * np.sin(latitude)**2)*altitude + a6 * altitude**2]
         ])
-
-
-if __name__ == "__main__":
-    ins = INS([np.radians(-7.7677225), np.radians(110.3861133), 0], [0, 0, 0])
-    ins.calculate_gyro(
-        np.array([[0], [0], [0]]),
-        np.array([[0], [0], [0]]),
-        0.01
-    )
-    print(ins.state.positionLLA)
-    print(ins.state.position)
-    print(ins.state.velocity)
-    print(ins.state.acceleration)
-    print(ins.state.quaternion)
-    ins.calculate_accel(
-        np.array([[0], [0], [9.8]]), 
-        np.array([[0], [0], [0]]), 
-        0.01, 
-        sgx=0.01, sgy=0.01, sgz=0.01
-    )
-    print(ins.state.positionLLA)
-    print(ins.state.position)
-    print(ins.state.velocity)
-    print(ins.state.acceleration)
-    print(ins.state.quaternion)

@@ -33,10 +33,31 @@ if __name__ == "__main__":
     print("a", ins.state.acceleration)
     print("q", ins.state.quaternion)
     ins.calculate_accel(
-        np.array([[0], [0], [9.8]]), 
         np.array([[0], [0], [0]]), 
-        0.01, 
-        sgx=0.01, sgy=0.01, sgz=0.01
+        np.array([[0], [0], [0]]), 
+        time_step=0.01, 
+        sgx=0.00, sgy=0.00, sgz=0.00
+    )
+    print("rLLA", ins.state.positionLLA)
+    print("r", ins.state.position)
+    print("v", ins.state.velocity)
+    print("a", ins.state.acceleration)
+    print("q", ins.state.quaternion)
+    ins.calculate_gyro(
+        np.array([[0], [0], [0]]),
+        np.array([[0], [0], [0]]),
+        0.01
+    )
+    print("rLLA", ins.state.positionLLA)
+    print("r", ins.state.position)
+    print("v", ins.state.velocity)
+    print("a", ins.state.acceleration)
+    print("q", ins.state.quaternion)
+    ins.calculate_accel(
+        np.array([[0], [0], [0]]), 
+        np.array([[0], [0], [0]]), 
+        time_step=0.01, 
+        sgx=0.00, sgy=0.00, sgz=0.00
     )
     print("rLLA", ins.state.positionLLA)
     print("r", ins.state.position)

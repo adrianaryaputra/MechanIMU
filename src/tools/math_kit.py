@@ -29,23 +29,61 @@ def skew_symmetric_matrix(vector, diag=0, scaler=1):
     #     [-vector[1]*scaler, vector[0]*scaler, diag]
     # ])
 
-def ecef_to_lla(x, y, z):
-    # Constants
-    a = 6378137  # Semi-major axis of the Earth
-    e = 0.0818191908426  # First Eccentricity of the Earth
+def ned2lla(ned_pos, base_lla):
+    ref_lat, ref_lon, ref_alt = base_lla.reshape(3,).tolist()
 
-    # Calculations
-    b = np.sqrt(a**2 * (1 - e**2))  # Semi-minor axis
-    ep = np.sqrt((a**2 - b**2) / b**2)  # Second Eccentricity
-    p = np.sqrt(x**2 + y**2)  # Distance from spin axis
-    th = np.arctan2(a * z, b * p)  # Angle related with true latitude
-    lon = np.arctan2(y, x)  # Longitude
-    lat = np.arctan2((z + ep**2 * b * np.sin(th)**3), (p - e**2 * a * np.cos(th)**3))  # Latitude
-    N = a / np.sqrt(1 - e**2 * np.sin(lat)**2)  # Radius of curvature in the prime vertical
-    alt = p / np.cos(lat) - N  # Altitude
+    # Convert reference LLA to Cartesian coordinates
+    ref_x, ref_y, ref_z = lla2ecef(ref_lat, ref_lon, ref_alt)
 
-    # Convert to degrees
-    lon = np.degrees(lon)
-    lat = np.degrees(lat)
+    # Calculate LLA position difference
+    diff_x = -ned_pos[1,0]  # East to West
+    diff_y = ned_pos[0,0]   # North to South
+    diff_z = -ned_pos[2,0]  # Down to Up
 
-    return np.array([lat, lon, alt]).reshape((3,1))
+    # Convert LLA position difference to Cartesian coordinates
+    new_lat, new_lon, new_alt = ecef2lla(
+        ref_x + diff_x, 
+        ref_y + diff_y, 
+        ref_z + diff_z
+    )
+
+    return np.array([new_lat, new_lon, new_alt]).reshape(3,1)
+
+def lla2ecef(lat, lon, alt):
+    # Conversion constants
+    a = 6378137.0  # Equatorial radius in meters
+    f_inv = 298.257223563  # Inverse flattening
+    f = 1 / f_inv
+
+    # Calculate intermediate values
+    e2 = 1 - (1 - f) * (1 - f)
+    N = a / (1 - e2 * (np.sin(lat) ** 2)) ** 0.5
+
+    # Convert LLA to Cartesian coordinates
+    x = (N + alt) * np.cos(lat) * np.cos(lon)
+    y = (N + alt) * np.cos(lat) * np.sin(lon)
+    z = (N * (1 - e2) + alt) * np.sin(lat)
+
+    return x, y, z
+
+def ecef2lla(x, y, z):
+    # Conversion constants
+    a = 6378137.0  # Equatorial radius in meters
+    f_inv = 298.257223563  # Inverse flattening
+    f = 1 / f_inv
+
+    # Calculate intermediate values
+    e2 = 1 - (1 - f) * (1 - f)
+    p = np.sqrt(x ** 2 + y ** 2)
+
+    # Calculate latitude
+    lat = np.arctan2(z, (p * (1 - e2)))
+
+    # Calculate longitude
+    lon = np.arctan2(y, x)
+
+    # Calculate altitude
+    N = a / np.sqrt(1 - e2 * (np.sin(lat) ** 2))
+    alt = (p / np.cos(lat)) - N
+
+    return np.array([lat, lon, alt]).reshape(3,1)
